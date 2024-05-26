@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Earth Shadow</title>
+  <script src="d3.v4.min.js"></script>
+  <script src="topojson-client.js"></script>
+  <script src="./versor.js"></script>
+  <script src="./versor-zooming.js"></script>
+  <script src="solar-calculator.min.js"></script>
+  <script src="solarcalculator.js"></script>
+  <script src="moment.js"></script>
+  <script src="moment-timezone-with-data.js"></script>
+  <script src="tz.js"></script>
+  <!-- <script src="https://d3js.org/d3.v3.min.js"></script> -->
+  <style>
+    html,body{
+      width:100%;
+      height:100%;
+      margin: 0px;
+    }
+    canvas{
+            display: block;
+            background-color: rgb(255, 255, 255);
+        }
+  </style>
+</head>
+<body>
+  <div>
+    <div>
+      <div align="center" id="latlon" style="position: absolute;z-index: 99999;bottom: 5.5%;left: 4%;text-align: left; font-size: 18px;color: black;z-index: 99999;"></div>
+      <div style="position: absolute;z-index: 99999;bottom: 2%;left: 4%;text-align: left;">
+        <button id="check_datas" style="text-align: left;background-color: rgb(255, 255, 255,0);color: gray;z-index: 99999;font-size: 18px;border: none;"><b>Menu</b></button>
+      </div>
+      <!-- <div style="position: absolute;z-index: 99999;bottom: 2%;right: 41%;text-align: right;">
+        <button id="number" style="text-align: left;background-color: rgb(255, 255, 255,0);color: gray;z-index: 99999;font-size: 18px;border: none;"><b>Number</b></button>
+      </div> -->
+      <div style="position: absolute;z-index: 99999;bottom: 2%;right: 4%;text-align: right;">
+        <button id="Charts" style="text-align: left;background-color: rgb(255, 255, 255,0);color: gray;z-index: 99999;font-size: 18px;border: none;"><b>Charts</b></button>
+      </div>      
+    </div>
+    <div>
+      <canvas id="can" style="position: absolute;">您的浏览器不支持canvas</cavnas>  
+    </div>
+    <div id="menu" style="visibility: hidden;position: absolute;right: 5%;left: 5%;width: 90%;bottom: 5%;border:2px solid white;border-radius: 10px;height: 520px;z-index: 10000000;background-color: rgba(5, 10, 30, 0.85)">
+      <!-- <br> -->
+      <div style="color: white;font-size: 16px;text-align: center;">要素选择</div>
+      <div align="center" style="color: white; font-size: 13px;">
+        <input type="checkbox" id="sealand" style="color: white;" checked>海陆分布
+        <input type="checkbox" id="country" style="color: white;">行政界线
+        <input type="checkbox" id="chq" style="color: white;">晨昏圈
+        <input type="checkbox" id="tz" style="color: white;">实际时区
+      </div>
+      <hr style="width: 80%;text-align: center;">
+      <div style="text-align: center;color: white;font-size: 16px;">
+          <font style="color: white;font-size: 16px;text-align: center;">等太阳高度</font>&nbsp;&nbsp;
+          <div align="center">
+            <input type="radio" name="sun_d" value="10">10°
+            <input type="radio" name="sun_d" value="15">15°
+            <input type="radio" name="sun_d" value="30">30°
+            <input type="radio" name="sun_d" value="none" checked>无
+          </div>
+      </div>
+      <hr style="width: 80%;text-align: center;">
+      <div style="text-align: center;color: white;font-size: 16px;">
+          <div style="color: white;font-size: 16px;text-align: center;">经纬网</div>
+          <div align="center">
+            <input type="radio" name="grad" value="10">10°
+            <input type="radio" name="grad" value="15" checked>15°
+            <input type="radio" name="grad" value="30">30°
+            <input type="radio" name="grad" value="none">无
+          </div>
+      </div>
+      <hr style="width: 80%;text-align: center;">
+      <div>
+          <div style="color: white;font-size: 16px;text-align: center;">时间选择</div>
+          <div style="text-align: center;">
+            <span>
+              <input type="datetime-local" id="datetime" style="font-size: 16px;">
+            </span>
+          </div>
+      </div>
+      <hr style="width: 80%;text-align: center;">
+      <div>
+          <div style="color: white;font-size: 16px;text-align: center;">时区选择</div>
+          <div style="text-align: center; color: white; font-size: 16px;">  
+             <span>
+                <select id="shiqu" style="font-size: 16px;" align="center">
+                  <option id="t_0" value="+00:00">零时区</option>
+                  <option id="e_1" value="+01:00">东一区</option>
+                  <option id="e_2" value="+02:00">东二区</option>
+                  <option id="e_3" value="+03:00">东三区</option>
+                  <option id="e_4" value="+04:00">东四区</option>
+                  <option id="e_5" value="+05:00">东五区</option>
+                  <option id="e_6" value="+06:00">东六区</option>
+                  <option id="e_7" value="+07:00">东七区</option>
+                  <option id="e_8" value="+08:00">东八区</option>
+                  <option id="e_9" value="+09:00">东九区</option>
+                  <option id="e_10" value="+10:00">东十区</option>
+                  <option id="e_11" value="+11:00">东十一区</option>
+                  <option id="e_12" value="+12:00">东十二区</option>
+                  <option id="w_12" value="-12:00">西十二区</option>
+                  <option id="w_11" value="-11:00">西十一区</option>
+                  <option id="w_10" value="-10:00">西十区</option>
+                  <option id="w_9" value="-09:00">西九区</option>
+                  <option id="w_8" value="-08:00">西八区</option>
+                  <option id="w_7" value="-07:00">西七区</option>
+                  <option id="w_6" value="-06:00">西六区</option>
+                  <option id="w_5" value="-05:00">西五区</option>
+                  <option id="w_4" value="-04:00">西四区</option>
+                  <option id="w_3" value="-03:00">西三区</option>
+                  <option id="w_2" value="-02:00">西二区</option>
+                  <option id="w_1" value="-01:00">西一区</option>
+                </select>
+            </span>
+            <input type="checkbox" id="lixiang" style="color: white;">实际
+          </div>
+      </div>
+      <hr style="width: 80%;text-align: center;">
+      <div>
+          <div style="color: white;font-size: 16px;text-align: center;">投影</div>
+          <div style="text-align: center;">
+            <select id="prj" style="font-size: 16px;">
+              <option id="prj0" value="prj0">NaturalEarth1</option>
+              <option id="prj1" value="prj1">Mercator</option>
+              <option id="prj2" value="prj2">Orthographic</option>
+              <option id="prj3" value="prj3">Patterson</option>
+            </select>
+          </div>
+      </div>
+      <hr style="width: 80%;text-align: center;">
+      <div style="text-align: center;">
+        <button id="drawmap" style="width: 70px;font-size: 14px;" onclick="drawmap()">绘制</button>
+      </div>
+      <div>
+          <div style="text-align: center;color: white;font-size: 13px;">Copyright@桐乡市凤鸣高级中学 杨天逸</div>
+      </div>
+    </div>
+    <div id="charts_panel" style="visibility:hidden;position: absolute;right: 5%;left: 5%;width: 90%;bottom: 5%;border:2px solid white;border-radius: 10px;height: 520px;z-index: 10000000;background-color: rgba(255, 255, 255, 0.85)">
+        <!-- <svg id="svg" style="background-color: rgb(255, 255, 255);position: absolute; bottom:20px;width: 100%;height: 450px;"></svg> -->
+        <!-- <iframe id="i_iframe" src="sunpath.html" width="100%" height="20%" scrolling="auto" style="z-index: 10000001;"></iframe> -->
+        <iframe id="i_iframe" width="100%" height="100%" scrolling="auto" style="z-index: 10000001;"></iframe>
+        <!-- <svg width="960" height="960"></svg> -->
+      </div>
+    <div id="number_panel" style="visibility:hidden;position: absolute;right: 5%;left: 5%;width: 90%;bottom: 5%;border:2px solid white;border-radius: 10px;height: 520px;z-index: 10000000;background-color: rgba(255, 255, 255, 0.85)">
+      <!-- <svg id="svg" style="background-color: rgb(255, 255, 255);position: absolute; bottom:20px;width: 100%;height: 450px;"></svg> -->
+      <!-- <iframe id="i_iframe" src="sunpath.html" width="100%" height="20%" scrolling="auto" style="z-index: 10000001;"></iframe> -->
+      <iframe id="i_iframe_0" width="100%" height="100%" scrolling="auto" style="z-index: 10000001;"></iframe>
+      <!-- <svg width="960" height="960"></svg> -->
+    </div>
+  </div>
+</body>
+</html>
+<script>
+    var can=document.getElementById("can");
+    can.width=innerWidth;
+    can.height=innerHeight;
+    var time;
+
+    var check_datas=document.getElementById("check_datas");
+    check_datas.onclick=function(){
+        menu=document.getElementById("menu");
+        menu_visi=menu.style.visibility;
+        if(menu_visi=="hidden"){
+           menu.style.visibility="visible";
+        }else if(menu_visi=="visible"){
+           menu.style.visibility="hidden"; 
+        }
+    }
+
+  var can=document.getElementById("can");
+  d3.json("./110m.json",function(error,w){
+    window.land=topojson.feature(w,w.objects.land)
+  })
+
+  function drawmap(){
+    var canvas = d3.select("canvas"),
+    width = canvas.property("width"),
+    height = canvas.property("height"),
+    context = canvas.node().getContext("2d");
+    var ty_value=document.getElementById("prj").options[document.getElementById("prj").selectedIndex].value;
+    pc_flag=IsPC();              //判断PC端或移动端
+    if (pc_flag==false){
+      if (ty_value=="prj0"){
+        var projection=d3.geoNaturalEarth1()    //自然投影
+            .scale(width/5.8)
+            .translate([width / 2, height / 2])
+            .precision(0.1); 
+      }else if (ty_value=="prj1"){
+        var projection=d3.geoMercator()   //墨卡托投影 Equirectangular()
+            .scale(width/6.5)
+            .translate([width / 2, height / 2])
+            .precision(0.1);
+      }else if(ty_value=="prj2"){
+        var projection = d3.geoOrthographic()     // 立体投影
+            .scale(width/2-10)
+            .translate([width/2, height/2.5])
+            .precision(0.1)  
+      }else if(ty_value=="prj3"){
+        var projection=d3.geoEquirectangular()   //等距投影
+            .scale(width/6.5)
+            .translate([width / 2, height / 2.5])
+            .precision(0.1);  
+      }
+    }else if(pc_flag==true){
+      if (ty_value=="prj0"){
+        var projection=d3.geoNaturalEarth1()    //自然投影
+            .scale(height/4)
+            .translate([width / 2, height / 2])
+            .precision(0.1); 
+      }else if (ty_value=="prj1"){
+        var projection=d3.geoMercator()   //墨卡托投影 Equirectangular()
+            .scale(height/7)
+            .translate([width / 2, height / 2])
+            .precision(0.1);
+      }else if(ty_value=="prj2"){
+        var projection = d3.geoOrthographic()     // 立体投影
+            .scale(height/2.5)
+            .translate([width/2, height/2])
+            .precision(0.1)  
+      }else if(ty_value=="prj3"){
+        var projection=d3.geoEquirectangular()   //等距投影
+            .scale(height/4)
+            .translate([width / 2, height / 2])
+            .precision(0.1);  
+      }
+    }
+
+
+  var path = d3.geoPath()    
+      .projection(projection)
+      .context(context);
+
+  // canvas.call(d3.drag()
+  //     .on("start", dragstarted)
+  //     .on("drag", dragged))
+  //     .on("click",clicked);     //地图选点   
+  
+  canvas
+    .call(d3.zoom().on("start",zoomstarted).scaleExtent([1, 3]).translateExtent([[0,0], [width, height]]).on("zoom",zoomedd))
+    .on("click",clicked)
+
+// var zoom = d3
+//   .zoom()
+//   .on("zoom start end", zoomed)
+//   .scaleExtent([1, 3])
+//   .translateExtent([[0,0], [width, height]]);
+
+// canvas.call(zoom)
+      // .on("zomm start end" , function(){
+      //   d3.event.sourceEvent.stopPropagation();
+      // })
+
+var init_scale = projection.scale(),
+init_translate = projection.translate();
+
+// function zoomed() {
+//   var t = d3.event.transform;
+//   projection.scale(init_scale * t.k)
+//     .translate(t.apply(init_translate));
+//     render();
+// }
+
+  var render = function() {},
+      v0, // Mouse position in Cartesian coordinates at start of drag gesture.
+      r0, // Projection rotation as Euler angles at start.
+      q0; // Projection rotation as versor at start.
+
+  // function dragstarted() {
+  //   v0 = versor.cartesian(projection.invert(d3.mouse(this)));
+  //   r0 = projection.rotate();
+  //   q0 = versor(r0);
+  // }
+
+  // function dragged() {
+  //   var v1 = versor.cartesian(projection.rotate(r0).invert(d3.mouse(this))),
+  //       q1 = versor.multiply(q0, versor.delta(v0, v1)),
+  //       r1 = versor.rotation(q1);
+  //   projection.rotate(r1);
+  //   render();
+  // }
+
+  function zoomstarted(){
+      v0 = versor.cartesian(projection.invert(d3.mouse(this)));
+      r0 = projection.rotate();
+      q0 = versor(r0);
+      render()
+}
+
+function zoomedd(){
+  var t = d3.event.transform;
+  projection.scale(init_scale * t.k)
+    .translate(init_translate);
+  var v1 = versor.cartesian(projection.rotate(r0).invert(d3.mouse(this))),
+      q1 = versor.multiply(q0, versor.delta(v0, v1)),
+      r1 = versor.rotation(q1);
+  projection.rotate(r1);
+    render();
+}
+
+  function clicked(){
+        canvas_xy=d3.mouse(this);      //获取canvas点击画布坐标
+        canvas_lonlat=projection.invert(canvas_xy);    //获取canvas点击的经纬度坐标
+        canvas_1_xy=projection([canvas_lonlat[0],canvas_lonlat[1]]);
+        p_lon=canvas_lonlat[0];
+        p_lat=canvas_lonlat[1];
+
+        if(document.getElementById("lixiang").checked==false){                 //求取理论时区
+          var sq=document.getElementById("shiqu");
+          var sq_value=sq.options[sq.selectedIndex].value;   //时区计算
+          bb_time=new Date(document.getElementById("datetime").value+sq_value);   //时区换算
+
+          var place_latlon=projection([canvas_lonlat[0],canvas_lonlat[1]]);
+          var place_lon=canvas_lonlat[0];       // 获取所求点经度
+          if (Math.abs(place_lon % 15) <= 7.5){        
+            timezone=parseInt(place_lon/15);    //求时区
+          }else{
+            if(place_lon >=0){
+              timezone=parseInt(place_lon/15)+1;   //东时区
+            }else{
+              timezone=parseInt(place_lon/15)-1;    //西时区
+            }
+          }
+          timezone_name="("+timezone+")";
+        }else if(document.getElementById("lixiang").checked==true){         //求取实际时区
+          var sq=document.getElementById("shiqu");
+          var sq_value=sq.options[sq.selectedIndex].value;   //时区计算
+          var time=document.getElementById("datetime").value+sq_value;   //时区换算
+          var aa=moment.tz(time,tzlookup(canvas_lonlat[1],canvas_lonlat[0]));
+          bb_time=new Date(aa.format()); //换算为当地时间
+          var cc=moment("2014-06-01T00:00:00Z");
+          var dd=cc.tz(tzlookup(canvas_lonlat[1],canvas_lonlat[0])).format().slice(-6,);
+          timezone=parseInt(dd.split(":")[0])+parseInt(dd.split(":")[1])/60;
+          timezone_name=tzlookup(canvas_lonlat[1],canvas_lonlat[0])+"&nbsp;&nbsp;"+"("+timezone+")"
+
+          
+        }
+        render();
+        div_latlon=document.getElementById("latlon");
+        function display_latlon(){
+            lat=canvas_lonlat[1].toFixed(1);
+            lon=canvas_lonlat[0].toFixed(1);
+            if (lon<0){
+                lon=-1*lon+"°W"
+            }else if(lon>0){
+                lon=lon+"°E"
+            }else if(lon==0){
+                lon=lon+"°"
+            };
+            if (lat<0){
+                lat=-1*lat+"°S"
+            }else if(lat>0){
+                lat=lat+"°N"
+            }else if(lat==0){
+                lat=lat+"°"
+            };
+            return lon+"&nbsp;&nbsp;"+lat+"&nbsp;"+timezone_name
+        };
+        div_latlon.innerHTML=display_latlon();
+        
+      
+    };
+
+  // d3.json("./110m.json",function(error,w){
+  //   land=topojson.feature(w,w.objects.land)
+  // })
+
+  d3.json("./output3.json", function(error, world) {
+    if (error) throw error;
+
+    
+
+
+    var sphere = {type: "Sphere"},
+    
+    countries = topojson.feature(world, world.objects.countries);
+    shenjie = topojson.feature(world,world.objects.gj);
+    jiuduanxian = topojson.feature(world,world.objects.jdx);
+    TimeZones = topojson.feature(world,world.objects.timezones);
+
+    var grad=document.getElementsByName("grad");
+    for(var ii=0;ii<3;ii=ii+1){
+      if (grad[ii].checked==true){
+          var gridGenerator=d3.geoGraticule()
+                    .step([grad[ii].value*1,grad[ii].value*1])
+          ()
+          var n_hgx=d3.geoCircle()      //绘制北回归线
+          .radius(66.5)
+          .center([120,-90])
+          ()
+          var s_hgx=d3.geoCircle()      //绘制南回归线
+              .radius(66.5)
+              .center([120,90])
+          ()
+          var s_jq=d3.geoCircle()      //绘制南极圈
+              .radius(23.5)
+              .center([120,90])
+          ()
+          var n_jq=d3.geoCircle()      //绘制北极圈
+              .radius(23.5)
+              .center([120,-90])
+          ()
+          
+      }
+
+    }
+    // var gridGenerator=d3.geoGraticule10();   //经纬线
+
+        
+    // var gridGenerator=d3.geoGraticule()
+    //             .step([30,30])
+    // ()
+
+    var sq=document.getElementById("shiqu");
+    var sq_value=sq.options[sq.selectedIndex].value;   //时区计算
+    time=document.getElementById("datetime").value+sq_value;   //时区换算
+
+    // center_lon=parseInt(sq_value)*15    //中央经线
+
+    // time_origin=document.getElementById("datetime").value;
+  //   var time="2021-12-04T07:53+00:00"
+
+    function sun(){               //计算太阳直射点
+      var now = new Date(time);   //设置时间与时区
+      var day = new Date(+now).setUTCHours(0,0,0,0);
+      console.log(time,now,day);
+      var t=solar.century(now);
+      var longitude=(day-now)/864e5*360-180;
+      return [(longitude-solar.equationOfTime(t)/4)+180,(solar.declination(t))*-1];
+      }
+
+    var night=d3.geoCircle()      //绘制晨昏圈
+          .radius(90)
+          .center(sun())
+      ()
+    
+    var sun_d=document.getElementsByName("sun_d");
+    for(var ii=0;ii<3;ii=ii+1){
+      if (sun_d[ii].checked==true){
+        var sun_h=[];
+        var sun_h_delt=1*sun_d[ii].value;
+        for(var jj=0;jj<90/sun_h_delt;jj=jj+1){
+            sun_h[jj]=d3.geoCircle()
+          .radius(sun_h_delt*(jj+1))
+          .center([-1*(180-sun()[0]),-1*sun()[1]])
+          ()
+        }       
+      }
+    }
+
+
+
+    render = function() {
+      context.clearRect(0, 0, width, height);
+      if(document.getElementById("sealand").checked==true){
+        context.beginPath(), path(sphere), context.strokeStyle=("rgba(0,0,0,1)"),context.setLineDash([]),context.stroke(), context.fillStyle="rgba(150,150,150,0.5)",context.fill();
+      }else if(document.getElementById("sealand").checked==false){
+        context.beginPath(), path(sphere), context.strokeStyle=("rgba(0,0,0,1)"),context.setLineDash([]),context.stroke(), context.fillStyle="rgba(255,255,255,1)",context.fill();
+      }
+      if(document.getElementById("sealand").checked==true){
+        context.beginPath(), path(land), context.fillStyle = "rgba(255,255,255,1)", context.fill(),context.strokeWidth=0.2,context.setLineDash([]),context.strokeStyle=("rgba(0,0,0,1)"),context.stroke();
+      }
+      if(document.getElementById("country").checked==true){
+        context.beginPath(), path(countries), context.fillStyle = "rgba(255,255,255,1)", context.fill(),context.strokeWidth=0.1,context.setLineDash([]),context.strokeStyle=("rgba(60,60,60,1)"),context.stroke();
+        context.beginPath(), path(shenjie), context.fillStyle = "rgba(255,255,255,1)", context.fill(),context.strokeWidth=0.2,context.setLineDash([3]),context.strokeStyle=("rgba(30,30,30,1)"),context.stroke();
+        context.beginPath(), path(jiuduanxian), context.strokeStyle=("rgba(0,0,0,1)"),context.setLineDash([]),context.stroke(), context.fillStyle="rgba(255,255,255,1)",context.fill();
+      }
+      if(document.getElementById("chq").checked==true){
+        context.beginPath(), path(night), context.fillStyle="rgba(100,100,100,0.5)", context.fill(),context.setLineDash([]),context.strokeStyle="rgba(0,0,0,1)",context.stroke();
+      }
+      context.beginPath(), path(gridGenerator),context.strokeStyle=("rgba(100,100,100,1)"),context.setLineDash([]),context.stroke();
+      context.beginPath(), path(n_hgx),context.strokeStyle=("rgba(100,100,100,1)"),context.setLineDash([5]),context.stroke();
+      context.beginPath(), path(s_hgx),context.strokeStyle=("rgba(100,100,100,1)"),context.setLineDash([5]),context.stroke();
+      context.beginPath(), path(s_jq),context.strokeStyle=("rgba(100,100,100,1)"),context.setLineDash([5]),context.stroke();
+      context.beginPath(), path(n_jq),context.strokeStyle=("rgba(100,100,100,1)"),context.setLineDash([5]),context.stroke();
+      if(document.getElementById("tz").checked==true){
+        context.beginPath(), path(TimeZones), context.strokeStyle=("rgba(0,0,0,1)"),context.setLineDash([]),context.stroke(), context.fillStyle="rgba(255,255,255,0)",context.fill();
+      }
+      if(typeof sun_h != "undefined"){
+        for(var kk=0;kk<sun_h.length;kk=kk+1){
+          context.beginPath(), path(sun_h[kk]),context.strokeStyle=("rgba(255,0,0,1)"),context.setLineDash([]),context.stroke();
+        }
+      }
+    };
+
+    render();
+  });
+}
+
+var Charts=document.getElementById("Charts");
+    Charts.onclick=function(){                                 //点击按钮绘制数据图
+        charts_panel=document.getElementById("charts_panel");
+        i_iframe=document.getElementById("i_iframe");
+        charts_panel_visi=charts_panel.style.visibility;
+        if(charts_panel_visi=="hidden"){
+          charts_panel.style.visibility="visible";
+          // i_iframe.src="sunpath.html";
+          i_iframe.src="sun_moon.html";
+        }else if(charts_panel_visi=="visible"){
+          charts_panel.style.visibility="hidden";
+          i_iframe.src="";
+        };
+
+        // draw_chart();
+      // function draw_chart(){
+      //   var svg = d3.select("svg"),
+      //     // width = +svg.attr("width"),
+      //     // height = +svg.attr("height"),
+      //     width = 1000,
+      //     height = 450,
+      //     scale = width * 0.3;
+
+      //   // var formatTime = d3.time.format("%-I %p"),
+      //   var formatTime = d3.timeFormat("%-I %p"),
+      //       formatNumber = d3.format(".1f"),
+      //       formatAngle = function(d) { return formatNumber(d) + "°"; };
+
+      //   var projection = d3.geoProjection(flippedStereographic)
+      //       .scale(scale)
+      //       .clipAngle(130)
+      //       .rotate([0, -90])
+      //       .translate([width / 2 , height / 2 ])
+      //       .precision(.1);
+
+      //   var path = d3.geoPath()
+      //       .projection(projection);
+
+      //   svg.append("path")
+      //       .datum(d3.geoCircle().center([0, 90]).radius(90))
+      //       .attr("class", "horizon")
+      //       .attr("d", path);
+
+      //   svg.append("path")
+      //       .datum(d3.geoGraticule())
+      //       .attr("class", "graticule")
+      //       .attr("d", path);
+
+      //   var ticksAzimuth = svg.append("g")
+      //       .attr("class", "ticks ticks--azimuth");
+
+      //   ticksAzimuth.selectAll("line")
+      //       .data(d3.range(360))
+      //     .enter().append("line")
+      //       .each(function(d) {
+      //         var p0 = projection([d, 0]),
+      //             p1 = projection([d, d % 10 ? -1 : -2]);
+
+      //         d3.select(this)
+      //             .attr("x1", p0[0])
+      //             .attr("y1", p0[1])
+      //             .attr("x2", p1[0])
+      //             .attr("y2", p1[1]);
+      //       });
+
+      //   ticksAzimuth.selectAll("text")
+      //       .data(d3.range(0, 360, 10))
+      //     .enter().append("text")
+      //       .each(function(d) {
+      //         var p = projection([d, -4]);
+
+      //         d3.select(this)
+      //             .attr("x", p[0])
+      //             .attr("y", p[1]);
+      //       })
+      //       .attr("dy", ".35em")
+      //       .text(function(d) { return d === 0 ? "N" : d === 90 ? "E" : d === 180 ? "S" : d === 270 ? "W" : d + "°"; });
+
+      //   svg.append("g")
+      //       .attr("class", "ticks ticks--elevation")
+      //     .selectAll("text")
+      //       .data(d3.range(10, 91, 10))
+      //     .enter().append("text")
+      //       .each(function(d) {
+      //         var p = projection([0, d]);
+
+      //         d3.select(this)
+      //             .attr("x", p[0])
+      //             .attr("y", p[1]);
+      //       })
+      //       .attr("dy", ".35em")
+      //       .text(function(d) { return d + "°"; });
+
+      //   navigator.geolocation.getCurrentPosition(located);
+
+      //   function located(geolocation) {
+      //   //   var solar = solarCalculator([geolocation.coords.longitude, geolocation.coords.latitude]);
+      //     var solar = solarCalculator([120, -30]);
+
+      //     d3.select("#waiting").transition()
+      //         .style("opacity", 0)
+      //         .remove();
+
+      //     svg.insert("path", ".sphere")
+      //         .attr("class", "solar-path");
+
+      //     var sun = svg.insert("g", ".sphere")
+      //         .attr("class", "sun");
+
+      //     sun.append("circle")
+      //         .attr("r", 5);
+
+      //     sun.append("text")
+      //         .attr("class", "sun-label sun-label--azimuth")
+      //         .attr("dy", ".71em")
+      //         .attr("y", 10);
+
+      //     sun.append("text")
+      //         .attr("class", "sun-label sun-label--elevation")
+      //         .attr("dy", "1.81em")
+      //         .attr("y", 10);
+
+      //     var tickSun = svg.insert("g", ".sphere")
+      //         .attr("class", "ticks ticks--sun")
+      //       .selectAll("g");
+
+      //     refresh();
+
+      //     setInterval(refresh, 1000);
+
+      //     function refresh() {
+      //       // var now = new Date,
+      //       var now= new Date("2022-01-23T11:53+00:00"),
+      //           start = d3.timeDay.floor(now),
+      //           end = d3.timeDay.offset(start, 1);
+
+      //       svg.select(".solar-path")
+      //           .datum({type: "LineString", coordinates: d3.timeMinutes(start, end).map(solar.position)})
+      //           .attr("d", path);
+
+      //       sun
+      //           .datum(solar.position(now))
+      //           .attr("transform", function(d) { return "translate(" + projection(d) + ")"; });
+
+      //       sun.select(".sun-label--azimuth")
+      //           .text(function(d) { return formatAngle(d[0]) + " φ"; });
+
+      //       sun.select(".sun-label--elevation")
+      //           .text(function(d) { return formatAngle(d[1]) + " θ"; });
+
+      //       tickSun = tickSun
+      //         .data(d3.timeHours(start, end), function(d) { return +d; });
+
+      //       tickSun.exit().remove();
+
+      //       var tickSunEnter = tickSun.enter().append("g")
+      //           .attr("transform", function(d) { return "translate(" + projection(solar.position(d)) + ")"; });
+
+      //       tickSunEnter.append("circle")
+      //           .attr("r", 2.5);
+
+      //       tickSunEnter.append("text")
+      //           .attr("dy", "-.31em")
+      //           .attr("y", -6)
+      //           .text(formatTime);
+      //     }
+      //   }
+
+      //   d3.select(self.frameElement).style("height", height + "px");
+
+      //   function flippedStereographic(λ, φ)  {
+      //     var cosλ = Math.cos(λ),
+      //         cosφ = Math.cos(φ),
+      //         k = 1 / (1 + cosλ * cosφ);
+      //     return [
+      //       k * cosφ * Math.sin(λ),
+      //       -k * Math.sin(φ)
+      //     ];
+      //   }
+      //         }
+        }
+
+// if(document.getElementById("lixiang").checked==true){
+//   time_timezone=get_place_timezone()
+// }else if(document.getElementById("lixiang").checked==false){
+//   time_timezone=get_place_timezone_shiji()
+// }
+
+
+var number=document.getElementById("number");
+    number.onclick=function(){                                 //点击按钮绘制数据图
+        number_panel=document.getElementById("number_panel");
+        i_iframe_0=document.getElementById("i_iframe_0");
+        number_panel_visi=number_panel.style.visibility;
+        if(number_panel_visi=="hidden"){
+          number_panel.style.visibility="visible";
+          // i_iframe.src="sunpath.html";
+          i_iframe_0.src="sun_moon.html";
+        }else if(number_panel_visi=="visible"){
+          number_panel.style.visibility="hidden";
+          i_iframe_0.src="";
+        };}
+
+function IsPC(){               //判断移动端或PC端
+        var userAgentInfo = navigator.userAgent;
+        var Agents = new Array("Android", "iPhone", "SymbianOS", "Windows Phone", "iPad", "iPod");  
+        var flag = true;  
+        for (var v = 0; v < Agents.length; v++) {  
+            if (userAgentInfo.indexOf(Agents[v]) > 0) { flag = false; break; }  
+        }  
+        return flag;  
+  }
+
+var download_btn=document.getElementById("download_btn");
+download_btn.onclick=() =>{
+  var alink = document.createElement("a");
+  var can_img=document.getElementById("can");
+  var img_url=can_img.toDataURL("img/png");
+  var img_blob=this.base64ToBlob(img_url);
+  var evt=document.createEvent("HTMLEvents");
+  evt.initEvent("click",true,true);
+  alink.href=URL.createObjectURL(img_blob);
+  alink.click();
+}
+
+function base64ToBlob(code) {
+  let parts = code.split(';base64,');
+  let contentType = parts[0].split(':')[1];
+  let raw = window.atob(parts[1]);
+  let rawLength = raw.length;
+
+  let uInt8Array = new Uint8Array(rawLength);
+
+  for (let i = 0; i < rawLength; ++i) {
+    uInt8Array[i] = raw.charCodeAt(i);
+  }
+  return new Blob([uInt8Array], {type: contentType});
+}
+</script>

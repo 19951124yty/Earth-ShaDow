@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D SunPath</title>
+    <script src="d3.v4.min.js"></script>
+    <!-- <script src="versor.js"></script>
+    <script src="versor-zooming.js"></script> -->
+    <script src="solar-calculator.min.js"></script>
+    <script src="suncalc.js"></script>
+    <style>
+        html,body{
+          width:100%;
+          height:100%;
+          margin: 0px;
+        }
+        canvas{
+                display: block;
+                background-color: rgb(255, 255, 255);
+            }
+      </style>
+</head>
+<body>
+    <div style="text-align: center;"> 
+        <input type="checkbox" id="sunpath" style="color: rgb(0, 0, 0);" checked onchange="draw()">太阳视运动曲线
+        <input type="checkbox" id="sunpoint" style="color: rgb(0, 0, 0);" checked onchange="draw()">逐小时太阳
+        <input type="checkbox" id="sunnow" style="color: rgb(0, 0, 0);" checked onchange="draw()">此刻太阳
+    </div>
+    <div style="text-align: center;">
+        <input type="checkbox" id="moonpoint" style="color: rgb(0, 0, 0);" onchange="draw()">逐小时月球
+        <input type="checkbox" id="network" style="color: rgb(0, 0, 0);" onchange="draw()">网格线
+        <input type="checkbox" id="circl" style="color: rgb(0, 0, 0);" onchange="draw()">子午/卯酉圈
+    </div>
+     <div style="text-align: center;">
+        俯仰<input type="range" id="fuyang" min="0" max="90" default_data="5" value="5" onchange="draw()">
+        <output for="fuyang"></output>
+        旋转<input type="range" id="xuanzhuan" min="0" max="360" default_data="270" value="270" onchange="draw()">
+        <output for="xuanzhuan"></output>
+    </div>
+    <div>
+        <canvas id="can" style="position: absolute;">您的浏览器不支持canvas</cavnas>
+    </div>
+    <!-- <div style="text-align: center;">
+        <button id="drawmap" style="width: 70px;font-size: 14px;" onclick="draw()">绘制</button>
+    </div> -->
+</body>
+</html>
+<script>
+    var can=document.getElementById("can");
+    can.width=innerWidth;
+    can.height=innerHeight;
+
+    function draw(){
+        var canvas = d3.select("canvas"),
+        width = canvas.property("width"),
+        height = canvas.property("height"),
+        context = canvas.node().getContext("2d");
+        // context.font-weight = "lighter";
+
+        
+
+        xuanzhuan_value=document.getElementById("xuanzhuan").value
+        fuyang_value=document.getElementById("fuyang").value
+
+        pc_flag=IsPC();
+        if (pc_flag==false){
+            var projection = d3.geoOrthographic()     // 立体投影
+                        .scale(height/3.5)
+                        .translate([width/2, height/2])
+                        .precision(0.1)
+                        .rotate([xuanzhuan_value,fuyang_value])
+            context.font="9px sans-serif";
+        }else if(pc_flag==true){
+            var projection = d3.geoOrthographic()     // 立体投影
+                        .scale(height/2.5)
+                        .translate([width/2, height/2])
+                        .precision(0.1)
+                        .rotate([xuanzhuan_value,fuyang_value])
+            context.font="12px sans-serif";
+        }
+        
+
+        var rotate = projection.rotate();
+        
+        var path = d3.geoPath()
+            .projection(projection)
+            .context(context);
+        
+
+        var backprojection= d3.geoProjection(function(a,b) {
+            return d3.geoOrthographicRaw(-a,b);
+            })
+            .clipAngle(90)
+            .translate(projection.translate())
+            .scale(projection.scale())
+
+          
+
+
+        var backpath = d3.geoPath(backprojection.rotate([rotate[0]+180, -rotate[1], -rotate[2]]), context)    //逆向投影
+        
+        // canvas
+        //     .call(d3.zoom().on("start",zoomstarted).scaleExtent([1, 3]).translateExtent([[0,0], [width, height]]).on("zoom",zoomedd))
+        //     // .on("click",clicked)
+
+        // var init_scale = projection.scale(),
+        // init_translate = projection.translate();
+
+        // var render = function() {},
+        //     v0, // Mouse position in Cartesian coordinates at start of drag gesture.
+        //     r0, // Projection rotation as Euler angles at start.
+        //     q0; // Projection rotation as versor at start.
+        
+        // function zoomstarted(){
+        //     v0 = versor.cartesian(projection.invert(d3.mouse(this)));
+        //     r0 = projection.rotate();
+        //     q0 = versor(r0);
+        //     render()
+        // }
+
+        // function zoomedd(){
+        //     var t = d3.event.transform;
+        //     projection.scale(init_scale * t.k)
+        //         .translate(init_translate);
+        //     var v1 = versor.cartesian(projection.rotate(r0).invert(d3.mouse(this))),
+        //         q1 = versor.multiply(q0, versor.delta(v0, v1)),
+        //         r1 = versor.rotation(q1);
+        //     projection.rotate(r1);
+        //         render();
+        // }
+
+
+        var sphere = {type: "Sphere"};   // 天顶
+
+        var net = d3.geoGraticule().step([15,15])()     // 经纬网
+
+        var chidao_0 = d3.geoCircle()      // 赤道
+        .radius(90)
+        .center([0,-90])
+        ()
+
+        var ew=d3.geoCircle()  //东西圈
+        .radius(90)
+        .center([90,0])
+        ()
+
+        var ns=d3.geoCircle()   //南北圈
+        .radius(90)
+        .center([180,0])
+        ()
+        
+        function get_sun_lat(){                     //获取太阳当日赤纬
+
+            var sun_lat=solar.declination(solar.century(new Date(window.parent.bb_time)))
+            return sun_lat
+
+        };
+
+        var test=d3.geoCircle()      //太阳视运动曲线
+        .radius(90-get_sun_lat())
+        .center([0,window.parent.p_lat])
+        ()
+
+        // function get_moon_lat(){        //获取月球当日赤纬
+        //     var moon_lat=SunCalc.getMoonPosition(new Date(),30,120);
+        //     var chiwei_moon=moon_lat.chiwei*(180/3.1415);
+        //     return chiwei_moon
+        // }
+
+        // var test_moon=d3.geoCircle()             //月球视运动曲线
+        // .radius(90-get_moon_lat())
+        // .center([0,30])
+        // ()
+
+        function gmt_2_timezone(tt){
+            var TimeZone=window.parent.timezone;   // 获取首页传递的时区
+            // var TimeZone=-9;
+            var a;
+            if (TimeZone < 8 && TimeZone >= 0){
+                a=8+(8-TimeZone);
+            }else if (TimeZone < 8 && TimeZone < 0){
+                a=8+8+Math.abs(TimeZone)
+            }else if (TimeZone >= 8){
+                a=8-(TimeZone-8);
+            };
+            // console.log(TimeZone);
+            var b=tt.getTime();
+            var offset = tt.getTimezoneOffset()*60000;
+            var utcTime = b+offset;
+            var c= new Date(utcTime+3600000*a);
+            return c
+        }
+
+
+
+        function get_sun_points(){
+            // var time=new Date()   //当日的时间和日期
+            var time=new Date(window.parent.bb_time);
+            var start_time=d3.timeDay.floor(time);   //开始时间
+            var end_time=d3.timeDay.offset(start_time, 1);   //结束时间
+            var time_hours=d3.timeHours(start_time,end_time);   //生成时间序列
+            var suns_coord=[];
+            for (var ii=0;ii<time_hours.length;ii=ii+1){
+                var sun_coord=[]
+                var sun_point=SunCalc.getPosition(gmt_2_timezone(time_hours[ii]),window.parent.p_lat,window.parent.p_lon);
+                sun_coord.push(sun_point.azimuth*(180/3.1415)+180);
+                sun_coord.push(sun_point.altitude*(180/3.1415));
+                suns_coord.push(sun_coord);
+            }
+            return suns_coord
+        };
+
+
+        function get_moon_points(){
+            // var time=new Date()   //当日的时间和日期
+            var time=new Date(window.parent.bb_time);
+            var start_time=d3.timeDay.floor(time);   //开始时间
+            var end_time=d3.timeDay.offset(start_time, 1);   //结束时间
+            var time_hours=d3.timeHours(start_time,end_time);   //生成时间序列
+            var moons_coord=[];
+            for (var ii=0;ii<time_hours.length;ii=ii+1){
+                var moon_coord=[]
+                var moon_point=SunCalc.getMoonPosition(time_hours[ii],window.parent.p_lat,window.parent.p_lon);
+                moon_coord.push(moon_point.azimuth*(180/3.1415)+180);
+                moon_coord.push(moon_point.altitude*(180/3.1415));
+                moons_coord.push(moon_coord);
+            }
+            return moons_coord
+        };
+
+
+
+        function sun_now_point(){                    //获取太阳此时的位置
+            // var time=new Date();
+            var time=new Date(window.parent.bb_time);
+            var sun_now_point=[];
+            sun_now_point.push(SunCalc.getPosition(time ,window.parent.p_lat,window.parent.p_lon).azimuth*(180/3.1415)+180);
+            sun_now_point.push(SunCalc.getPosition(time ,window.parent.p_lat,window.parent.p_lon).altitude*(180/3.1415));
+            return sun_now_point
+
+        }
+
+        function moon_now_point(){
+            // var time=new Date();
+            var time=new Date(window.parent.bb_time);
+            var moon_now_point=[];
+            moon_now_point.push(SunCalc.getMoonPosition(time,window.parent.p_lat,window.parent.p_lon).azimuth*(180/3.1415)+180);
+            moon_now_point.push(SunCalc.getMoonPosition(time,window.parent.p_lat,window.parent.p_lon).altitude*(180/3.1415));
+            return moon_now_point
+        }
+
+
+        sun = ({                                     //太阳逐小时坐标
+            "type": "Feature",
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": get_sun_points()
+            }
+        });
+
+        moon = ({                                   //月球逐小时坐标
+            "type": "Feature",
+            "geometry": {
+                "type": "MultiPoint",
+                "coordinates": get_moon_points()
+            }
+        });
+
+        var sun_now_coord=sun_now_point();
+        var sun_now_xy=projection(sun_now_coord);
+        var sun_now_offset=35;
+        // var time=new Date();
+        var time=new Date(window.parent.bb_time);
+        var sun_now_label=((SunCalc.getPosition(time,window.parent.p_lat,window.parent.p_lon).azimuth*(180/3.1415))+180).toFixed(1)+"°,"+(SunCalc.getPosition(time,window.parent.p_lat,window.parent.p_lon).altitude*(180/3.1415)).toFixed(1)+"°"
+        sun_now=({                                     //太阳此时的位置
+            "type": "Feature",
+            "geometry": {
+                "type": "Point",
+                "coordinates": sun_now_point()
+            }
+        });
+
+
+        var moon_now_coord=moon_now_point();
+        var moon_now_xy=projection(moon_now_coord);
+        var moon_now_offset=35;
+        // var time=new Date();
+        var time=new Date(window.parent.bb_time);
+        var moon_now_label=((SunCalc.getMoonPosition(time,window.parent.p_lat,window.parent.p_lon).azimuth*(180/3.1415))+180).toFixed(1)+"°,"+(SunCalc.getMoonPosition(time,window.parent.p_lat,window.parent.p_lon).altitude*(180/3.1415)).toFixed(1)+"°"
+        moon_now=({                                     //太阳此时的位置
+            "type": "Feature",
+            "geometry": {
+                "type": "Point",
+                "coordinates": moon_now_point()
+            }
+        });
+
+
+
+        var label_n_coord=[0,0];                            //北向坐标
+        var label_n_xy=projection(label_n_coord);
+        var label_offset=5;
+        var label_n_text="N";
+        north_point = ({
+            "type": "Feature",
+            "geometry": {
+                "type": "Point",
+                "coordinates": [0,0]
+            }
+        });
+
+        var label_e_coord=[90,0];                         //东向坐标
+        var label_e_xy=projection(label_e_coord);
+        var label_offset=5;
+        var label_e_text="E";
+        east_point = ({
+            "type": "Feature",
+            "geometry": {
+                "type": "Point",
+                "coordinates": [90,0]
+            }
+        });
+
+        var label_s_coord=[180,0];                      //南向坐标
+        var label_s_xy=projection(label_s_coord);
+        var label_offset=5;
+        var label_s_text="S";
+        sourth_point = ({
+            "type": "Feature",
+            "geometry": {
+                "type": "Point",
+                "coordinates": [180,0]
+            }
+        });
+
+        var label_w_coord=[270,0];                      //西向坐标
+        var label_w_xy=projection(label_w_coord);
+        var label_offset=5;
+        var label_w_text="W";
+        west_point = ({
+            "type": "Feature",
+            "geometry": {
+                "type": "Point",
+                "coordinates": [270,0]
+            }
+        });
+        
+
+
+        render = function(){
+            context.clearRect(0, 0, width, height);
+            context.beginPath(), path(chidao_0),context.lineWidth=2,context.strokeStyle=("rgba(100,100,100,1)"),context.setLineDash([]),context.stroke(),context.stroke(),context.fillStyle="rgba(100,149,237,0.5)",context.fill();
+            context.beginPath(), backpath(chidao_0),context.lineWidth=2,context.strokeStyle=("rgba(100,100,100,1)"),context.setLineDash([]),context.stroke();
+            
+            var lon_tick_label=["0°","90°","180°","270°"];
+            var lon_tick=[[0,0],[90,0],[180,0],[270,0]];
+            if (get_sun_points()[12][0] >= 90 && get_sun_points()[12][0] <= 180 ){
+                var lat_tick_label=["-75°","-60°","-45°","-30°","-15°","15°","30°","45°","60°","75°","90°"];
+                var lat_tick= [[0,-75],[0,-60],[0,-45],[0,-30],[0,-15],[180,15],[180,30],[180,45],[180,60],[180,75],[180,90]];
+            } else{
+                var lat_tick_label=["75°","60°","45°","30°","15°","-15°","-30°","-45°","-60°","-75°","-90°"];
+                var lat_tick= [[0,75],[0,60],[0,45],[0,30],[0,15],[180,-15],[180,-30],[180,-45],[180,-60],[180,-75],[180,-90]];
+            }
+            if(document.getElementById("network").checked==true){
+                context.beginPath(), path(net),context.lineWidth=0.7,context.strokeStyle=("rgba(100,100,100,0.5)"),context.setLineDash([]),context.stroke();
+                context.beginPath(), backpath(net),context.lineWidth=1.5,context.strokeStyle=("rgba(100,100,100,1)"),context.setLineDash([]),context.stroke();
+                for (var mm=0;mm<4;mm=mm+1){
+                    context.strokeText(lon_tick_label[mm], projection(lon_tick[mm])[0] + 5, projection(lon_tick[mm])[1] + 10);
+                };
+                for (var nn=0;nn<11;nn=nn+1){
+                    context.strokeText(lat_tick_label[nn], projection(lat_tick[nn])[0] + 5, projection(lat_tick[nn])[1] - 5);
+                }         
+            }
+
+            if(document.getElementById("circl").checked==true){
+                context.beginPath(), path(ew),context.lineWidth=1,context.strokeStyle=("rgba(0,0,255,1)"),context.setLineDash([]),context.stroke();
+                context.beginPath(), backpath(ew),context.lineWidth=1,context.strokeStyle=("rgba(0,0,255,0.7)"),context.setLineDash([]),context.stroke();
+                context.beginPath(), path(ns),context.lineWidth=1,context.strokeStyle=("rgba(60,179,113,1)"),context.setLineDash([]),context.stroke();
+                context.beginPath(), backpath(ns),context.lineWidth=1,context.strokeStyle=("rgba(60,179,113,0.7)"),context.setLineDash([]),context.stroke();    
+            }
+
+            if(document.getElementById("sunpath").checked==true){
+                context.beginPath(), path(test),context.strokeStyle=("red"),context.setLineDash([]),context.stroke();
+                context.beginPath(), backpath(test),context.strokeStyle=("red"),context.setLineDash([]),context.stroke();                
+            }
+
+            // context.beginPath(), path(test_moon),context.strokeStyle=("#FFCC00"),context.setLineDash([]),context.stroke();
+            // context.beginPath(), backpath(test_moon),context.strokeStyle=("#FFCC00"),context.setLineDash([]),context.stroke();
+
+            context.beginPath(), path(sphere),context.lineWidth=2,context.strokeStyle="#000",context.setLineDash([]),context.stroke();
+            context.font = "14px Times New Roman"
+            if(document.getElementById("sunnow").checked==true){
+                context.beginPath(), path.pointRadius(9), backpath(sun_now), context.fillStyle = "#990000", context.fill();
+                context.beginPath(), path.pointRadius(9), path(sun_now), context.fillStyle = "#990000", context.fill();
+                context.strokeText(sun_now_label, sun_now_xy[0] + 25, sun_now_xy[1] + 25);
+            }
+ 
+            context.strokeText(label_n_text, label_n_xy[0] - 12, label_n_xy[1] - label_offset);
+            context.beginPath(), path.pointRadius(2.5), backpath(north_point), context.fillStyle = "black", context.fill();
+            context.beginPath(), path.pointRadius(2.5), path(north_point), context.fillStyle = "black", context.fill();
+
+            context.strokeText(label_e_text, label_e_xy[0] + label_offset, label_e_xy[1] - label_offset);
+            context.beginPath(), path.pointRadius(2.5), backpath(east_point), context.fillStyle = "black", context.fill();
+            context.beginPath(), path.pointRadius(2.5), path(east_point), context.fillStyle = "black", context.fill();
+
+            context.strokeText(label_s_text, label_s_xy[0] + label_offset, label_s_xy[1] - label_offset);
+            context.beginPath(), path.pointRadius(2.5), backpath(sourth_point), context.fillStyle = "black", context.fill();
+            context.beginPath(), path.pointRadius(2.5), path(sourth_point), context.fillStyle = "black", context.fill();
+
+            context.strokeText(label_w_text, label_w_xy[0] - 12, label_w_xy[1] + 12);
+            context.beginPath(), path.pointRadius(2.5), backpath(west_point), context.fillStyle = "black", context.fill();
+            context.beginPath(), path.pointRadius(2.5), path(west_point), context.fillStyle = "black", context.fill();
+
+            // var hours_text=["0:00","1:00","2:00","3:00","4:00","5:00","6:00","7:00","8:00","9:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00","21:00","22:00","23:00","24:00"];
+            var hours_text=["0","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24"];
+            
+            var hours_coord=get_sun_points();                //逐小时标签
+            var hours_coord=get_moon_points();
+            if(document.getElementById("sunpoint").checked==true){ 
+                context.beginPath(), path.pointRadius(2.5), backpath(sun), context.fillStyle = "#ff1493", context.fill();
+                context.beginPath(), path.pointRadius(2.5), path(sun), context.fillStyle = "#ff1493", context.fill();
+                context.font = "12px Times New Roman"
+                for (var jj=0;jj<24;jj=jj+1){
+                    context.strokeText(hours_text[jj], projection(get_sun_points()[jj])[0] + 5, projection(get_sun_points()[jj])[1] - 5);
+                    // context.strokeText(hours_text[jj], projection(get_moon_points()[jj])[0] + 5, projection(get_moon_points()[jj])[1] - 5);
+                }                
+            };
+            if(document.getElementById("moonpoint").checked==true){
+                context.beginPath(), path.pointRadius(2.5), backpath(moon), context.fillStyle = "#FFCC00", context.fill();
+                context.beginPath(), path.pointRadius(2.5), path(moon), context.fillStyle = "#FFCC00", context.fill();
+                context.beginPath(), path.pointRadius(9), backpath(moon_now), context.fillStyle = "rgba(255,140,0,1)", context.fill();
+                context.beginPath(), path.pointRadius(9), path(moon_now), context.fillStyle = "rgba(255,140,0,1)", context.fill();
+                context.font = "12px Times New Roman"
+                context.strokeText(moon_now_label, moon_now_xy[0] + 25, moon_now_xy[1] + 25);
+                context.font = "12px Times New Roman"
+                for (var jj=0;jj<24;jj=jj+1){
+                    // context.strokeText(hours_text[jj], projection(get_sun_points()[jj])[0] + 5, projection(get_sun_points()[jj])[1] - 5);
+                    context.strokeText(hours_text[jj], projection(get_moon_points()[jj])[0] + 5, projection(get_moon_points()[jj])[1] - 5);
+                }                
+            };
+
+            
+
+        };
+        render();
+    }
+    draw()
+
+    function IsPC(){               //判断移动端或PC端
+        var userAgentInfo = navigator.userAgent;
+        var Agents = new Array("Android", "iPhone", "SymbianOS", "Windows Phone", "iPad", "iPod");  
+        var flag = true;  
+        for (var v = 0; v < Agents.length; v++) {  
+            if (userAgentInfo.indexOf(Agents[v]) > 0) { flag = false; break; }  
+        }  
+        return flag;  
+  }
+</script>
